@@ -1,0 +1,6 @@
+{
+  "name": "Star Code Studio",
+  "description": "Portail de ressources haute performance et générateur de clones sur mesure développé par Astarté.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
