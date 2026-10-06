@@ -61,7 +61,7 @@ const App: React.FC = () => {
         setCurrentPage('customization');
       }
     } catch (e) {
-      console.log("Session Studio : Nouveau créateur ou erreur de liaison.");
+      // Nouveau créateur ou session invalide : on reste sur la landing.
     } finally {
       // Petite latence pour laisser l'animation briller
       setTimeout(() => setIsChecking(false), 1500);

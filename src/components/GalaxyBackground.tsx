@@ -17,9 +17,15 @@ export const GalaxyBackground: React.FC<Props> = ({ theme, speed, density, style
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     let particles: Particle[] = [];
     let centerX = canvas.width / 2;
     let centerY = canvas.height / 2;
+    let animationId = 0;
 
     const colors: Record<string, string> = {
       neon: '6, 182, 212',
@@ -62,7 +68,7 @@ export const GalaxyBackground: React.FC<Props> = ({ theme, speed, density, style
       }
 
       update() {
-        if (style === 'static') return;
+        if (style === 'static' || prefersReducedMotion) return;
         this.angle += this.orbitalSpeed;
         this.x = centerX + Math.cos(this.angle) * this.radius;
         this.y = centerY + Math.sin(this.angle) * this.radius;
@@ -91,8 +97,8 @@ export const GalaxyBackground: React.FC<Props> = ({ theme, speed, density, style
       particles = Array.from({ length: density }, () => new Particle());
     };
 
-    const animate = () => {
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.18)'; 
+    const renderFrame = () => {
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.18)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       particles.forEach(p => {
@@ -101,13 +107,13 @@ export const GalaxyBackground: React.FC<Props> = ({ theme, speed, density, style
       });
 
       if (style === 'constellation') {
-        const connectionDistance = 150; 
+        const connectionDistance = 150;
         for (let i = 0; i < particles.length; i++) {
           for (let j = i + 1; j < particles.length; j++) {
             const dx = particles[i].x - particles[j].x;
             const dy = particles[i].y - particles[j].y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            
+
             if (dist < connectionDistance) {
               ctx.beginPath();
               ctx.shadowBlur = 0;
@@ -121,15 +127,30 @@ export const GalaxyBackground: React.FC<Props> = ({ theme, speed, density, style
           }
         }
       }
-      requestAnimationFrame(animate);
+    };
+
+    const animate = () => {
+      renderFrame();
+      if (prefersReducedMotion) {
+        return; // render a single static frame, no perpetual animation loop
+      }
+      animationId = requestAnimationFrame(animate);
     };
 
     init();
     animate();
-    
-    const handleResize = () => init();
+
+    const handleResize = () => {
+      init();
+      if (prefersReducedMotion) {
+        renderFrame(); // redraw the static frame once after resize
+      }
+    };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (animationId) cancelAnimationFrame(animationId);
+    };
   }, [theme, speed, density, style]);
 
   return (

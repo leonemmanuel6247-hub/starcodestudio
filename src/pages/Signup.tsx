@@ -1,7 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserData, SiteConfig } from '../types';
-import { ChevronLeft, ShieldCheck, Loader2, UserCircle, Mail, GraduationCap } from 'lucide-react';
+import {
+  ChevronLeft, ShieldCheck, Loader2, UserCircle, Mail, GraduationCap, Globe,
+} from 'lucide-react';
 
 interface Props {
   siteConfig: SiteConfig;
@@ -14,10 +15,11 @@ export const Signup: React.FC<Props> = ({ siteConfig, onSuccess, onBack }) => {
     fullName: '',
     email: '',
     grade: '',
-    country: 'Togo'
+    country: 'Togo',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ip, setIp] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('https://api.ipify.org?format=json')
@@ -28,94 +30,137 @@ export const Signup: React.FC<Props> = ({ siteConfig, onSuccess, onBack }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    
-    try {
-      // Simulate registration delay
-      setTimeout(() => {
-        onSuccess({
-          firstName: formData.fullName,
-          lastName: '',
-          grade: formData.grade,
-          email: formData.email,
-          country: formData.country,
-          ip: ip,
-          birthDate: { day: 1, month: 1, year: 2000 },
-          userAgent: navigator.userAgent
-        });
-        setIsSubmitting(false);
-      }, 2500);
-    } catch (e) {
-      console.error(e);
-      setIsSubmitting(false);
+    if (isSubmitting) return;
+    setError(null);
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Veuillez saisir une adresse email valide.');
+      return;
     }
+
+    setIsSubmitting(true);
+    await new Promise(r => setTimeout(r, 1500));
+    onSuccess({
+      firstName: formData.fullName,
+      lastName: '',
+      grade: formData.grade,
+      email: formData.email,
+      country: formData.country,
+      ip: ip,
+      birthDate: { day: 1, month: 1, year: 2000 },
+      userAgent: navigator.userAgent,
+    });
+    setIsSubmitting(false);
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-20 px-6 animate-in fade-in slide-in-from-bottom-12 duration-1000">
-      <button onClick={onBack} className="text-slate-400 hover:text-cyan-400 mb-12 flex items-center gap-2 uppercase font-black text-sm tracking-wider transition-all">
-        <ChevronLeft className="w-5 h-5" /> Retour Studio
+    <div className="max-w-lg mx-auto py-16 px-6 animate-in fade-in slide-in-from-bottom-12 duration-700">
+      <button
+        type="button"
+        onClick={onBack}
+        className="sc-btn-ghost mb-10 uppercase font-bold text-sm tracking-wider cursor-pointer"
+      >
+        <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Retour Studio
       </button>
 
-      <div className="bg-slate-900/60 border border-cyan-500/20 rounded-[4rem] p-12 backdrop-blur-3xl shadow-[0_0_80px_rgba(6,182,212,0.1)] relative">
-        <header className="mb-14">
-          <h2 className="text-5xl font-black text-white tracking-tighter mb-4 uppercase italic">Séquence <span className="text-cyan-500">Initiale</span></h2>
-          <p className="text-slate-500 text-[11px] font-black uppercase tracking-[0.4em] leading-relaxed">Enregistrement sur le noyau Astarté</p>
+      <div className="glass-panel rounded-[2.5rem] p-8 md:p-12 relative">
+        <header className="mb-10">
+          <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-3 uppercase italic">
+            Séquence{' '}
+            <span className="text-cyan-400 text-glow-cyan bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">
+              Initiale
+            </span>
+          </h2>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.35em] leading-relaxed">
+            Enregistrement sur le noyau Astarté
+          </p>
         </header>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase text-slate-600 ml-6 tracking-widest flex items-center gap-2">
-              <UserCircle className="w-3 h-3" /> Nom Complet
-            </label>
-            <input 
-              required 
-              value={formData.fullName} 
-              onChange={e => setFormData({...formData, fullName: e.target.value})} 
-              placeholder="Ex: Jean-Luc Polaris" 
-              className="w-full bg-black/40 border border-white/10 rounded-3xl px-8 py-6 text-white focus:border-cyan-500 outline-none transition-all placeholder:text-slate-800" 
-            />
-          </div>
-
-          <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase text-slate-600 ml-6 tracking-widest flex items-center gap-2">
-              <Mail className="w-3 h-3" /> Email de Gestion
-            </label>
-            <input 
-              required 
-              type="email" 
-              value={formData.email} 
-              onChange={e => setFormData({...formData, email: e.target.value})} 
-              placeholder="votre@base-donnees.com" 
-              className="w-full bg-black/40 border border-white/10 rounded-3xl px-8 py-6 text-white focus:border-cyan-500 outline-none transition-all placeholder:text-slate-800" 
-            />
-          </div>
-
-          <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase text-slate-600 ml-6 tracking-widest flex items-center gap-2">
-              <GraduationCap className="w-3 h-3" /> Niveau / Spécialité
-            </label>
-            <input 
-              required 
-              value={formData.grade} 
-              onChange={e => setFormData({...formData, grade: e.target.value})} 
-              placeholder="Ex: Terminale S / Master IT" 
-              className="w-full bg-black/40 border border-white/10 rounded-3xl px-8 py-6 text-white focus:border-cyan-500 outline-none transition-all placeholder:text-slate-800" 
-            />
-          </div>
-
-          <button 
-            disabled={isSubmitting}
-            className="w-full bg-blue-500 text-white font-black py-8 rounded-[2.5rem] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_60px_rgba(59,130,246,0.6),0_25px_50px_rgba(59,130,246,0.4)] hover:shadow-[0_0_80px_rgba(59,130,246,0.8),0_35px_70px_rgba(59,130,246,0.6)] border-2 border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none group mt-10"
+        {error && (
+          <div
+            role="alert"
+            className="mb-6 px-5 py-4 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-rose-300 text-sm font-semibold"
           >
-            {isSubmitting ? <Loader2 className="animate-spin w-7 h-7" /> : <ShieldCheck className="w-7 h-7" />}
-            <span className="tracking-wide uppercase text-xl font-black">ACTIVER LE CLONE</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-7" noValidate>
+          <div className="space-y-3">
+            <label htmlFor="fullName" className="sc-label ml-2">
+              <UserCircle className="w-3.5 h-3.5" aria-hidden="true" /> Nom complet
+            </label>
+            <input
+              id="fullName"
+              required
+              value={formData.fullName}
+              onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+              placeholder="Ex: Jean-Luc Polaris"
+              autoComplete="name"
+              className="sc-input"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label htmlFor="email" className="sc-label ml-2">
+              <Mail className="w-3.5 h-3.5" aria-hidden="true" /> Email de gestion
+            </label>
+            <input
+              id="email"
+              required
+              type="email"
+              value={formData.email}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
+              placeholder="votre@base-donnees.com"
+              autoComplete="email"
+              className="sc-input"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label htmlFor="grade" className="sc-label ml-2">
+              <GraduationCap className="w-3.5 h-3.5" aria-hidden="true" /> Niveau / Spécialité
+            </label>
+            <input
+              id="grade"
+              required
+              value={formData.grade}
+              onChange={e => setFormData({ ...formData, grade: e.target.value })}
+              placeholder="Ex: Terminale S / Master IT"
+              className="sc-input"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label htmlFor="country" className="sc-label ml-2">
+              <Globe className="w-3.5 h-3.5" aria-hidden="true" /> Pays
+            </label>
+            <input
+              id="country"
+              value={formData.country}
+              onChange={e => setFormData({ ...formData, country: e.target.value })}
+              placeholder="Togo"
+              className="sc-input"
+            />
+          </div>
+
+          <button type="submit" disabled={isSubmitting} className="sc-btn-primary w-full py-6 mt-4">
+            {isSubmitting ? (
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <ShieldCheck className="w-5 h-5" aria-hidden="true" />
+            )}
+            <span className="tracking-wide uppercase text-base font-black">
+              {isSubmitting ? 'Activation en cours...' : 'Activer le clone'}
+            </span>
           </button>
         </form>
       </div>
-      
-      <div className="mt-12 text-center opacity-30 text-[9px] font-black uppercase tracking-[0.5em]">
-         Liaison IP: {ip || "Détection..."} • Signé Astarté
+
+      <div className="mt-10 text-center opacity-40 text-[9px] font-bold uppercase tracking-[0.5em] flex items-center justify-center gap-3">
+        <span>Liaison IP: {ip || 'Détection...'}</span>
+        <span className="w-1 h-1 rounded-full bg-cyan-500" aria-hidden="true"></span>
+        <span>Signé Astarté</span>
       </div>
     </div>
   );
