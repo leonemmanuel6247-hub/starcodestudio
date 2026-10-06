@@ -142,6 +142,303 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/**
+ * Feuille de style commune aux sites generes (mono et multi-pages).
+ * L'accent provient du theme choisi par l'utilisateur.
+ */
+function buildBaseCss(accentColor: string, textColor: string, bgColor: string): string {
+  return `
+        :root { --accent: ${accentColor}; --bg: ${bgColor}; --text: ${textColor}; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { overflow-x: hidden; max-width: 100vw; }
+        body { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; }
+        .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 0; font-size: 18vw; line-height: 1; font-weight: 900; letter-spacing: 0.05em; white-space: nowrap; text-transform: uppercase; pointer-events: none; opacity: 0.04; user-select: none; color: var(--accent); }
+        .galaxy { position: fixed; inset: 0; background: radial-gradient(circle at center, ${bgColor}, #000 100%); z-index: -1; }
+        .stars { position: absolute; inset: -100%; background-image: radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)), radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)); background-size: 250px 250px; animation: rotate 300s linear infinite; opacity: 0.35; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .container { max-width: 1000px; margin: 0 auto; padding: 6rem 2rem; position: relative; z-index: 10; overflow: hidden; box-sizing: border-box; width: 100%; }
+        .container * { box-sizing: border-box; }
+        header { text-align: center; margin-bottom: 6rem; }
+        h1 { font-size: clamp(2.5rem, 8vw, 5.5rem); font-weight: 900; color: var(--accent); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: -0.07em; text-shadow: 0 0 40px rgba(6,182,212,0.4); }
+        .credit { text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5em; opacity: 0.5; margin-bottom: 3rem; font-weight: 900; color: var(--accent); }
+        .content-area { max-width: 100%; }
+        article { max-width: 100%; margin-bottom: 4rem; padding-bottom: 4rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        article img { max-width: 100%; height: auto; display: block; border-radius: 1rem; margin: 2rem 0; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        article video { max-width: 100%; height: auto; display: block; border-radius: 1rem; margin: 2rem 0; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        article img[style*="float"] { margin: 0 2rem 1rem 0; }
+        article video[style*="float"] { margin: 0 2rem 1rem 0; }
+        footer { margin-top: 12rem; text-align: center; opacity: 0.3; font-size: 0.7rem; text-transform: uppercase; font-weight: 900; letter-spacing: 0.7em; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4rem; }
+        #gateway { position: fixed; inset: 0; background: #020617; z-index: 1000; display: flex; align-items: center; justify-content: center; text-align: center; backdrop-filter: blur(50px); }
+        .hidden { display: none !important; }
+        .gate-box { background: rgba(255,255,255,0.02); padding: 5rem; border-radius: 3rem; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 550px; box-shadow: 0 50px 120px rgba(0,0,0,0.6); }
+        input { background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); padding: 1.8rem 2rem; border-radius: 2rem; color: #fff; width: 100%; outline: none; margin-bottom: 2rem; font-family: inherit; font-weight: 900; text-align: center; font-size: 1.3rem; }
+        .btn { background: var(--accent); color: #000; padding: 2rem 3rem; border-radius: 2rem; font-weight: 900; border: none; cursor: pointer; text-transform: uppercase; width: 100%; transition: 0.4s; font-size: 1.1rem; letter-spacing: 0.1em; }
+        .btn:hover { transform: scale(1.05); filter: brightness(1.2); box-shadow: 0 15px 40px rgba(6,182,212,0.4); }
+        @media (max-width: 640px) { .container { padding: 4rem 1.25rem; } }
+  `;
+}
+
+/** Styles additionnels reserves au site multi-pages (navigation, CTA, formulaires). */
+const MULTIPAGE_CSS = `
+        .site-header { margin-bottom: 3.5rem; }
+        .brand { font-size: clamp(1.8rem, 6vw, 3.2rem); font-weight: 900; color: var(--accent); text-transform: uppercase; letter-spacing: -0.05em; margin-bottom: 0.6rem; text-shadow: 0 0 40px rgba(6,182,212,0.4); }
+        .site-nav { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 2.5rem; }
+        .site-nav a { color: var(--text); text-decoration: none; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; font-size: 0.75rem; padding: 0.8rem 1.4rem; border: 1px solid rgba(255,255,255,0.15); border-radius: 2rem; transition: 0.3s; }
+        .site-nav a:hover, .site-nav a.active { color: #000; background: var(--accent); border-color: var(--accent); }
+        .hero { text-align: center; margin-bottom: 4rem; }
+        .page-title { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 900; text-transform: uppercase; letter-spacing: -0.04em; margin-bottom: 1.5rem; color: var(--text); }
+        .hero-desc { opacity: 0.65; font-weight: 600; font-style: italic; font-size: 1.15rem; letter-spacing: 0.03em; max-width: 720px; margin: 0 auto; }
+        .cta-row { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin: 3.5rem 0; }
+        .cta { display: inline-block; padding: 1.1rem 2.4rem; border-radius: 2rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.85rem; text-decoration: none; transition: 0.3s; }
+        .cta-primary { background: var(--accent); color: #000; }
+        .cta-primary:hover { transform: scale(1.05); filter: brightness(1.15); }
+        .cta-ghost { border: 1px solid var(--accent); color: var(--accent); }
+        .cta-ghost:hover { background: var(--accent); color: #000; }
+        .form-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; padding: 2.5rem; max-width: 560px; margin: 0 auto; }
+        .form-card label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 900; opacity: 0.55; margin-bottom: 0.7rem; text-align: left; }
+        .form-card input { margin-bottom: 1.6rem; text-align: left; font-size: 1rem; padding: 1.2rem 1.4rem; }
+        .notice { display: none; margin-top: 1.5rem; padding: 1.1rem; border-radius: 1rem; font-weight: 700; text-align: center; }
+        .notice.ok { display: block; color: var(--accent); border: 1px solid var(--accent); background: rgba(255,255,255,0.04); }
+        /* ---- Sections génériques ---- */
+        .section { margin-bottom: 6rem; }
+        .section-title { font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: 900; text-transform: uppercase; letter-spacing: -0.03em; text-align: center; margin-bottom: 3rem; color: var(--text); }
+        .section-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .panel-info { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; padding: 2rem; }
+        .panel-info p { opacity: 0.75; line-height: 1.7; font-weight: 400; }
+        .info-title { font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.8rem; color: var(--accent); margin-bottom: 1rem; }
+        .values-wrap { margin-top: 2.5rem; text-align: center; }
+        .values-title { text-transform: uppercase; font-weight: 900; letter-spacing: 0.2em; font-size: 0.75rem; opacity: 0.6; }
+        .values-list { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; margin-top: 1rem; }
+        .pill { background: rgba(255,255,255,0.04); border: 1px solid var(--accent); color: var(--text); padding: 0.6rem 1.2rem; border-radius: 2rem; font-size: 0.85rem; font-weight: 700; }
+        /* ---- Cartes (services, témoignages) ---- */
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem; }
+        .cards-grid.service-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .service-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; padding: 2rem; display: flex; flex-direction: column; align-items: flex-start; transition: 0.3s; }
+        .service-card:hover { border-color: var(--accent); background: rgba(255,255,255,0.05); }
+        .service-card h3 { font-size: 1.4rem; font-weight: 900; text-transform: uppercase; margin-bottom: 1rem; color: var(--accent); }
+        .service-card p { opacity: 0.7; line-height: 1.7; flex: 1; }
+        .service-price { margin-top: 1rem; font-weight: 900; font-size: 1.1rem; color: var(--accent); }
+        .comment-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; padding: 2rem; }
+        .ta-text { opacity: 0.8; line-height: 1.7; font-style: italic; }
+        .ta-author { margin-top: 1rem; font-weight: 900; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; }
+        .stars { color: #fbbf24; letter-spacing: 0.2em; margin-bottom: 1rem; }
+        /* ---- Pourquoi nous choisir / chiffres ---- */
+        .why-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.2rem; }
+        .why-list li { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.25rem; padding: 1.5rem 1.8rem; font-weight: 600; display: flex; align-items: center; gap: 1rem; }
+        .why-list li::before { content: '✓'; color: var(--accent); font-weight: 900; }
+        .stats-section { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; padding: 3rem 2rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 2rem; text-align: center; }
+        .stat-value { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; color: var(--accent); }
+        .stat-label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; opacity: 0.6; margin-top: 0.5rem; }
+        /* ---- CTA bannière ---- */
+        .cta-banner { text-align: center; padding: 4rem 2rem; background: rgba(255,255,255,0.03); border: 1px solid var(--accent); border-radius: 2rem; }
+        /* ---- Contact ---- */
+        .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+        @media (max-width: 760px) { .contact-grid { grid-template-columns: 1fr; } }
+        .contact-list { list-style: none; margin-bottom: 2rem; }
+        .contact-list li { padding: 0.9rem 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-weight: 600; font-size: 1.05rem; }
+        .contact-list a { color: var(--accent); text-decoration: none; }
+        .contact-socials, .footer-socials { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+        .social-btn { width: 3rem; height: 3rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--text); font-size: 1.2rem; transition: 0.3s; text-decoration: none; }
+        .social-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+        textarea { background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); padding: 1.2rem 1.4rem; border-radius: 1.5rem; color: #fff; width: 100%; outline: none; margin-bottom: 1.6rem; font-family: inherit; font-weight: 400; font-size: 1rem; resize: vertical; text-align: left; }
+        /* ---- Inscription ---- */
+        .signup-card { max-width: 520px; }
+        .pass-wrap { position: relative; }
+        .pass-wrap input { padding-right: 3.5rem; }
+        .pass-toggle { position: absolute; right: 1rem; top: 1.1rem; background: none; border: none; cursor: pointer; font-size: 1.1rem; opacity: 0.6; }
+        .pass-toggle:hover { opacity: 1; }
+        .check-line { display: flex; align-items: center; gap: 0.8rem; font-size: 0.85rem; opacity: 0.75; font-weight: 600; margin-bottom: 0.9rem; }
+        .check-line input { width: auto; margin: 0; }
+        .form-alt { text-align: center; margin-top: 1.8rem; opacity: 0.7; font-weight: 600; }
+        .form-alt a { color: var(--accent); text-decoration: underline; }
+        /* ---- Footer ---- */
+        .site-footer { margin-top: 8rem; text-align: left; opacity: 1; font-size: 0.8rem; text-transform: none; letter-spacing: 0; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 3.5rem; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; }
+        .footer-brand { font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; font-size: 1.1rem; color: var(--accent); margin-bottom: 0.8rem; }
+        .footer-title { font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; font-size: 0.7rem; color: var(--text); opacity: 0.6; margin-bottom: 1rem; }
+        .footer-col p, .footer-col a { display: block; margin-bottom: 0.5rem; color: var(--text); opacity: 0.75; text-decoration: none; line-height: 1.6; }
+        .footer-col a:hover { opacity: 1; color: var(--accent); }
+        .footer-legal { display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: space-between; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06); opacity: 0.5; text-transform: uppercase; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.1em; }
+`;
+
+/**
+ * Rend un texte Markdown simplifié en HTML sûr.
+ * Gère : paragraphes (lignes vides), **gras**, *italique*, listes (- / * / 1.),
+ * titres (# ## ###) et retours à la ligne. Les balises HTML sont échappées.
+ */
+function renderMarkdown(src: string, inlineStyle = ''): string {
+  if (!src || typeof src !== 'string') return '';
+  let html = src
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+  html = html
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
+
+  const paraStyle = `text-align: justify; line-height: 1.9; font-weight: 400; color: var(--text); font-size: 1.1rem; ${inlineStyle}`;
+  const blockStyle = `${inlineStyle}`;
+
+  const blocks = html.split(/\n\s*\n+/);
+  const out: string[] = [];
+  for (const block of blocks) {
+    const lines = block.trim().split('\n');
+    let para: string[] = [];
+    let listOpen = false;
+    const flushPara = () => {
+      if (para.length) {
+        out.push(`<p style="${paraStyle} margin-bottom: 1.5rem;">${para.join('<br>')}</p>`);
+        para = [];
+      }
+    };
+    const closeList = () => {
+      if (listOpen) { out.push('</ul>'); listOpen = false; }
+    };
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) { flushPara(); continue; }
+      const h = line.match(/^(#{1,3})\s+(.*)/);
+      if (h) {
+        flushPara(); closeList();
+        const tag = h[1].length === 1 ? 'h2' : h[1].length === 2 ? 'h3' : 'h4';
+        out.push(`<${tag} style="margin: 1.5rem 0 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: -0.02em;">${h[2]}</${tag}>`);
+        continue;
+      }
+      const li = line.match(/^([-*]|\d+\.)\s+(.*)/);
+      if (li) {
+        flushPara();
+        if (!listOpen) { out.push(`<ul style="margin: 1rem 0 1.5rem 1.5rem; ${blockStyle}">`); listOpen = true; }
+        out.push(`<li style="margin-bottom: 0.5rem; line-height: 1.8;">${li[2]}</li>`);
+        continue;
+      }
+      closeList();
+      para.push(line);
+    }
+    flushPara(); closeList();
+  }
+  return out.join('');
+}
+
+/* ------------------------------------------------------------------ */
+/* Petits éditeurs de listes pour le contenu professionnel (3 pages)    */
+/* ------------------------------------------------------------------ */
+function ListEditor({ title, values, onChange, placeholder }: {
+  title: string;
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="sc-label ml-1">{title}</label>
+      {values.map((val, i) => (
+        <div key={i} className="flex gap-2">
+          <input
+            value={val}
+            onChange={e => {
+              const next = [...values];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+            className="sc-input"
+            placeholder={placeholder}
+          />
+          <button
+            type="button"
+            onClick={() => onChange(values.filter((_, idx) => idx !== i))}
+            className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl cursor-pointer"
+            aria-label={`Retirer ${title}`}
+          >
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...values, ''])}
+        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold cursor-pointer"
+      >
+        <PlusCircle className="w-4 h-4 text-cyan-500" aria-hidden="true" /> Ajouter
+      </button>
+    </div>
+  );
+}
+
+function StatListEditor({ stats, onChange }: {
+  stats: { value: string; label: string }[];
+  onChange: (s: { value: string; label: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="sc-label ml-1">Chiffres clés</label>
+      {stats.map((s, i) => (
+        <div key={i} className="flex gap-2">
+          <input value={s.value} onChange={e => onChange(stats.map((x, idx) => idx === i ? { ...x, value: e.target.value } : x))} className="sc-input" placeholder="500+" />
+          <input value={s.label} onChange={e => onChange(stats.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x))} className="sc-input" placeholder="Clients" />
+          <button type="button" onClick={() => onChange(stats.filter((_, idx) => idx !== i))} className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl cursor-pointer" aria-label="Retirer"><Trash2 className="w-4 h-4" aria-hidden="true" /></button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...stats, { value: '', label: '' }])} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold cursor-pointer">
+        <PlusCircle className="w-4 h-4 text-cyan-500" aria-hidden="true" /> Ajouter un chiffre clé
+      </button>
+    </div>
+  );
+}
+
+function ServiceListEditor({ services, onChange }: {
+  services: { name: string; description: string; price?: string }[];
+  onChange: (s: { name: string; description: string; price?: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <label className="sc-label ml-1">Services / produits</label>
+      {services.map((s, i) => (
+        <div key={i} className="space-y-2 rounded-2xl border border-white/10 p-4 bg-white/[0.02]">
+          <div className="flex gap-2">
+            <input value={s.name} onChange={e => onChange(services.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} className="sc-input" placeholder="Nom du service" />
+            <button type="button" onClick={() => onChange(services.filter((_, idx) => idx !== i))} className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl cursor-pointer" aria-label="Retirer"><Trash2 className="w-4 h-4" aria-hidden="true" /></button>
+          </div>
+          <input value={s.description} onChange={e => onChange(services.map((x, idx) => idx === i ? { ...x, description: e.target.value } : x))} className="sc-input" placeholder="Description courte" />
+          <input value={s.price || ''} onChange={e => onChange(services.map((x, idx) => idx === i ? { ...x, price: e.target.value } : x))} className="sc-input" placeholder="Prix (optionnel)" />
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...services, { name: '', description: '' }])} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold cursor-pointer">
+        <PlusCircle className="w-4 h-4 text-cyan-500" aria-hidden="true" /> Ajouter un service
+      </button>
+    </div>
+  );
+}
+
+function TestimonialListEditor({ testimonials, onChange }: {
+  testimonials: { author: string; text: string; rating?: number }[];
+  onChange: (t: { author: string; text: string; rating?: number }[]) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <label className="sc-label ml-1">Témoignages clients</label>
+      {testimonials.map((t, i) => (
+        <div key={i} className="space-y-2 rounded-2xl border border-white/10 p-4 bg-white/[0.02]">
+          <div className="flex gap-2">
+            <input value={t.author} onChange={e => onChange(testimonials.map((x, idx) => idx === i ? { ...x, author: e.target.value } : x))} className="sc-input" placeholder="Nom du client" />
+            <select value={String(t.rating || 5)} onChange={e => onChange(testimonials.map((x, idx) => idx === i ? { ...x, rating: Number(e.target.value) } : x))} className="sc-input cursor-pointer w-24">
+              {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{'★'.repeat(n)}</option>)}
+            </select>
+            <button type="button" onClick={() => onChange(testimonials.filter((_, idx) => idx !== i))} className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl cursor-pointer" aria-label="Retirer"><Trash2 className="w-4 h-4" aria-hidden="true" /></button>
+          </div>
+          <textarea value={t.text} onChange={e => onChange(testimonials.map((x, idx) => idx === i ? { ...x, text: e.target.value } : x))} className="sc-input resize-none" rows={2} placeholder="Commentaire" />
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...testimonials, { author: '', text: '', rating: 5 }])} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold cursor-pointer">
+        <PlusCircle className="w-4 h-4 text-cyan-500" aria-hidden="true" /> Ajouter un témoignage
+      </button>
+    </div>
+  );
+}
+
 export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user }) => {
   const [items, setItems] = useState<ResourceItem[]>([]);
   const [newItem, setNewItem] = useState<ResourceItem>({
@@ -274,8 +571,9 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
       .replace(/'/g, '&#039;');
   };
 
-  const generateHTML = (opts: { inlineLocalMedia?: boolean } = {}) => {
+  const generatePages = (opts: { inlineLocalMedia?: boolean } = {}): Record<string, string> => {
     const isLocked = siteConfig.template === 'locked';
+    const isMultipage = siteConfig.template === 'multipage';
     const accentColor = themes.find(t => t.id === siteConfig.theme)?.color || '#06b6d4';
     const developerName = escapeHTML(user?.firstName || 'Astarté');
     const contactEmail = escapeHTML(user?.email || 'contact');
@@ -328,9 +626,9 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
                 }
               }
 
-              const titleHTML = `<h2 style="font-size: ${fontSize}; font-weight: 900; text-transform: uppercase; margin-bottom: 1.5rem; color: var(--text); letter-spacing: -0.02em;">${escapeHTML(item.title)}</h2>`;
+              const titleHTML = `<h2 style="font-size: ${fontSize}; font-weight: 900; text-transform: uppercase; margin-bottom: 1.5rem; color: var(--text); letter-spacing: -0.02em;">${renderMarkdown(item.title)}</h2>`;
               const descriptionHTML = item.description
-                ? `<p style="text-align: justify; line-height: 1.8; font-weight: 400; color: var(--text); margin-bottom: 3rem; font-size: 1.1rem;">${escapeHTML(item.description)}</p>`
+                ? renderMarkdown(item.description, 'margin-bottom: 3rem;')
                 : '';
               const linkHTML = hasLink
                 ? `<a href="${item.link}" target="_blank" style="display: inline-block; margin-top: 1rem; color: var(--accent); text-decoration: underline; font-weight: 600;">Voir plus &rarr;</a>`
@@ -358,7 +656,305 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
             .join('')
         : '<div style="text-align: center; padding: 4rem; opacity: 0.5; font-size: 1.2rem; color: var(--text);">Aucun contenu disponible pour le moment.</div>';
 
-    return `<!DOCTYPE html>
+    if (isMultipage) {
+      const textColor = siteConfig.textColor || '#ffffff';
+      const bgColor = siteConfig.bgColor || '#020617';
+      const baseCss = buildBaseCss(accentColor, textColor, bgColor) + MULTIPAGE_CSS;
+      const watermark = escapeHTML(siteConfig.watermark || siteConfig.title);
+      const logoHTML = siteConfig.logoDataUrl
+        ? `<img src="${siteConfig.logoDataUrl}" alt="Logo ${escapeHTML(siteConfig.title)}" style="width: 120px; height: 120px; object-fit: contain; border-radius: 1rem; margin: 0 auto 1.5rem; display: block; box-shadow: 0 10px 40px rgba(0,0,0,0.5);"/>`
+        : '';
+
+      const phone = escapeHTML(siteConfig.phone || '');
+      const whatsapp = escapeHTML(siteConfig.whatsapp || '');
+      const address = escapeHTML(siteConfig.address || '');
+      const schedule = escapeHTML(siteConfig.schedule || '');
+      const tagline = escapeHTML(siteConfig.tagline || siteConfig.description);
+      const whatsappLink = whatsapp.replace(/[^+\d]/g, '');
+
+      const socialItem = (name: string, url?: string) =>
+        url
+          ? `<a class="social-btn" href="${escapeHTML(url)}" target="_blank" rel="noopener" aria-label="${escapeHTML(name)}"><i class="fa-brands fa-${name}"></i></a>`
+          : '';
+
+      const socialHTML = () => `
+            <div>
+                ${socialItem('facebook', siteConfig.social?.facebook)}
+                ${socialItem('instagram', siteConfig.social?.instagram)}
+                ${socialItem('tiktok', siteConfig.social?.tiktok)}
+                ${socialItem('linkedin', siteConfig.social?.linkedin)}
+                ${whatsapp ? `<a class="social-btn" href="https://wa.me/${whatsappLink}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ''}
+            </div>`;
+
+      const navHTML = (active: 'index' | 'contact' | 'inscription') => `
+            <nav class="site-nav">
+                <a href="index.html"${active === 'index' ? ' class="active"' : ''}>Accueil</a>
+                <a href="contact.html"${active === 'contact' ? ' class="active"' : ''}>Contact</a>
+                <a href="inscription.html"${active === 'inscription' ? ' class="active"' : ''}>Inscription</a>
+            </nav>`;
+
+      const footerHTML = `
+        <footer class="site-footer">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    ${siteConfig.logoDataUrl ? `<img src="${siteConfig.logoDataUrl}" alt="Logo ${escapeHTML(siteConfig.title)}" style="height: 48px; width: auto; object-fit: contain; margin-bottom: 1rem;"/>` : ''}
+                    <div class="footer-brand">${escapeHTML(siteConfig.title)}</div>
+                    <p style="opacity:0.6; font-style:italic;">${escapeHTML(tagline)}</p>
+                </div>
+                <div class="footer-col">
+                    <div class="footer-title">Contact</div>
+                    ${phone ? `<p>📍 ${address ? 'Adresse : ' + address : 'Contact'}</p>` : ''}
+                    ${phone ? `<p>📞 <a href="tel:${phone}">${phone}</a></p>` : ''}
+                    ${whatsapp ? `<p>💬 <a href="https://wa.me/${whatsappLink}" target="_blank" rel="noopener">${whatsapp}</a></p>` : ''}
+                    <p>📧 <a href="mailto:${contactEmail}">${contactEmail}</a></p>
+                </div>
+                <div class="footer-col">
+                    <div class="footer-title">Liens rapides</div>
+                    <a href="index.html">Accueil</a>
+                    <a href="contact.html">Contact</a>
+                    <a href="inscription.html">Inscription</a>
+                </div>
+                <div class="footer-col">
+                    <div class="footer-title">Suivez-nous</div>
+                    ${socialHTML()}
+                </div>
+            </div>
+            <div class="footer-legal">
+                <span>© ${new Date().getFullYear()} ${escapeHTML(siteConfig.title)}</span>
+                <span>Conditions générales</span>
+                <span>Politique de confidentialité</span>
+            </div>
+        </footer>`;
+
+      const buildPage = (pageLabel: string, active: 'index' | 'contact' | 'inscription', body: string) => `<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHTML(pageLabel)} — ${escapeHTML(siteConfig.title)}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;900&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>${baseCss}</style>
+</head>
+<body>
+    <div class="galaxy"><div class="stars"></div></div>
+    <div class="watermark">${watermark}</div>
+    <div class="container">
+        <header class="site-header">
+            ${logoHTML}
+            <h1 class="brand">${escapeHTML(siteConfig.title)}</h1>
+            <div class="credit">Développé par ${developerName}</div>
+            ${navHTML(active)}
+        </header>
+        ${body}
+        ${footerHTML}
+    </div>
+    <script>
+        function handleForm(e, id) {
+            e.preventDefault();
+            var n = document.getElementById('notice-' + id);
+            if (n) n.classList.add('ok');
+            e.target.reset();
+            return false;
+        }
+        function togglePass(id) {
+            var f = document.getElementById(id);
+            f.type = f.type === 'password' ? 'text' : 'password';
+        }
+        function handleSignup(e) {
+            e.preventDefault();
+            var p1 = document.getElementById('i-pass').value;
+            var p2 = document.getElementById('i-pass2').value;
+            if (p2 !== p1) {
+                alert('Les mots de passe ne correspondent pas.');
+                return false;
+            }
+            var n = document.getElementById('notice-inscription');
+            if (n) n.classList.add('ok');
+            e.target.reset();
+            return false;
+        }
+    </script>
+</body>
+</html>`;
+
+      // --- Vitrines réutilisables ---
+      const valuesRows = (siteConfig.values || []).map((v: string) =>
+        `<span class="pill">${escapeHTML(v)}</span>`
+      ).join('');
+
+      const whyRows = (siteConfig.whyChooseUs || []).map((w: string) =>
+        `<li>${escapeHTML(w)}</li>`
+      ).join('');
+
+      const statsCards = (siteConfig.stats || []).map((s) =>
+        `<div class="stat-card"><div class="stat-value">${escapeHTML(s.value)}</div><div class="stat-label">${escapeHTML(s.label)}</div></div>`
+      ).join('');
+
+      const servicesCards = (siteConfig.services || []).map((s) =>
+        `<article class="service-card">
+            <h3>${escapeHTML(s.name)}</h3>
+            <p>${escapeHTML(s.description)}</p>
+            ${s.price ? `<div class="service-price">${escapeHTML(s.price)}</div>` : ''}
+            <a class="cta cta-ghost" href="contact.html" style="margin-top:1rem; font-size:0.8rem; padding:0.8rem 1.6rem;">En savoir plus</a>
+         </article>`
+      ).join('');
+
+      const testimonialsCards = (siteConfig.testimonials || []).map((t) =>
+        `<article class="comment-card">
+            <div class="stars">${'★'.repeat(t.rating || 5)}</div>
+            <p class="ta-text">${escapeHTML(t.text)}</p>
+            <div class="ta-author">— ${escapeHTML(t.author)}</div>
+         </article>`
+      ).join('');
+
+      const contentSection = contentHTML;
+
+      // --- Page Accueil ---
+      const accueilBody = `
+        <section class="hero hero-landing">
+            <h2 class="page-title">${escapeHTML(tagline)}</h2>
+            <p class="hero-desc">${escapeHTML(siteConfig.description)}</p>
+            <div class="cta-row">
+                <a class="cta cta-primary" href="inscription.html">Rejoindre</a>
+                <a class="cta cta-ghost" href="contact.html">Nous contacter</a>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">Qui sommes-nous ?</h2>
+            <div class="section-grid">
+                <div class="panel-info">
+                    <h3 class="info-title">Notre mission</h3>
+                    <p>${escapeHTML(siteConfig.mission || '')}</p>
+                </div>
+                <div class="panel-info">
+                    <h3 class="info-title">Notre vision</h3>
+                    <p>${escapeHTML(siteConfig.vision || '')}</p>
+                </div>
+            </div>
+            ${valuesRows ? `<div class="values-wrap"><strong class="values-title">Nos valeurs</strong><div class="values-list">${valuesRows}</div></div>` : ''}
+        </section>
+
+        ${servicesCards ? `
+        <section class="section">
+            <h2 class="section-title">Nos services / produits</h2>
+            <div class="cards-grid">${servicesCards}</div>
+        </section>` : ''}
+
+        ${contentSection ? `<section class="section"><h2 class="section-title">Nos ressources</h2>${contentSection}</section>` : ''}
+
+        ${whyRows ? `
+        <section class="section">
+            <h2 class="section-title">Pourquoi nous choisir ?</h2>
+            <ul class="why-list">${whyRows}</ul>
+        </section>` : ''}
+
+        ${testimonialsCards ? `
+        <section class="section">
+            <h2 class="section-title">Ils nous font confiance</h2>
+            <div class="cards-grid testimonials">${testimonialsCards}</div>
+        </section>` : ''}
+
+        ${statsCards ? `
+        <section class="section stats-section">
+            <div class="stats-grid">${statsCards}</div>
+        </section>` : ''}
+
+        <section class="section cta-banner">
+            <h2 class="page-title">Vous avez un projet ? Parlons-en !</h2>
+            <a class="cta cta-primary" href="contact.html">Nous contacter</a>
+        </section>`;
+
+      // --- Page Contact ---
+      const socialContact = `
+            <div class="contact-socials">
+                ${socialItem('facebook', siteConfig.social?.facebook)}
+                ${socialItem('instagram', siteConfig.social?.instagram)}
+                ${socialItem('tiktok', siteConfig.social?.tiktok)}
+                ${socialItem('linkedin', siteConfig.social?.linkedin)}
+                ${whatsapp ? `<a class="social-btn" href="https://wa.me/${whatsappLink}" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ''}
+            </div>`;
+
+      const contactBody = `
+        <section class="hero">
+            <h2 class="page-title">Contactez-nous</h2>
+            <p class="hero-desc">Une question, une demande ou un projet ? Notre équipe est à votre disposition.</p>
+        </section>
+
+        <section class="section contact-grid">
+            <div>
+                <h2 class="section-title" style="text-align:left;">Coordonnées</h2>
+                <ul class="contact-list">
+                    ${address ? `<li>📍 ${escapeHTML(address)}</li>` : ''}
+                    ${phone ? `<li>📞 <a href="tel:${phone}">${phone}</a></li>` : ''}
+                    ${whatsapp ? `<li>💬 <a href="https://wa.me/${whatsappLink}" target="_blank" rel="noopener">${whatsapp}</a></li>` : ''}
+                    <li>📧 <a href="mailto:${contactEmail}">${contactEmail}</a></li>
+                    ${schedule ? `<li>🕐 ${escapeHTML(schedule)}</li>` : ''}
+                </ul>
+                ${socialContact}
+            </div>
+
+            <div>
+                <h2 class="section-title" style="text-align:left;">Envoyez-nous un message</h2>
+                <form class="form-card" onsubmit="return handleForm(event, 'contact')">
+                    <label for="c-name">Nom complet</label>
+                    <input id="c-name" type="text" placeholder="Votre nom" required>
+                    <label for="c-email">Email</label>
+                    <input id="c-email" type="email" placeholder="vous@exemple.com" required>
+                    <label for="c-phone">Téléphone</label>
+                    <input id="c-phone" type="tel" placeholder="+228 00 00 00 00">
+                    <label for="c-subject">Sujet</label>
+                    <input id="c-subject" type="text" placeholder="Objet de votre message">
+                    <label for="c-msg">Message</label>
+                    <textarea id="c-msg" rows="4" placeholder="Votre message" required></textarea>
+                    <button class="btn" type="submit">Envoyer le message</button>
+                    <div class="notice" id="notice-contact">✔ Votre message a bien été envoyé. Nous vous répondrons dans les meilleurs délais.</div>
+                </form>
+            </div>
+        </section>`;
+
+      // --- Page Inscription ---
+      const inscriptionBody = `
+        <section class="hero">
+            <h2 class="page-title">Créez votre compte</h2>
+            <p class="hero-desc">Rejoignez-nous en quelques secondes.</p>
+        </section>
+        <form class="form-card signup-card" onsubmit="return handleSignup(event)">
+            <label for="i-lastname">Nom</label>
+            <input id="i-lastname" type="text" placeholder="Votre nom" required>
+            <label for="i-firstname">Prénom</label>
+            <input id="i-firstname" type="text" placeholder="Votre prénom" required>
+            <label for="i-email">Adresse e-mail</label>
+            <input id="i-email" type="email" placeholder="vous@exemple.com" required>
+            <label for="i-phone">Numéro de téléphone</label>
+            <input id="i-phone" type="tel" placeholder="+228 00 00 00 00">
+            <label for="i-pass">Mot de passe</label>
+            <div class="pass-wrap">
+                <input id="i-pass" type="password" placeholder="••••••••" required>
+                <button type="button" class="pass-toggle" onclick="togglePass('i-pass')" aria-label="Afficher/masquer le mot de passe">👁</button>
+            </div>
+            <label for="i-pass2">Confirmation du mot de passe</label>
+            <div class="pass-wrap">
+                <input id="i-pass2" type="password" placeholder="••••••••" required>
+                <button type="button" class="pass-toggle" onclick="togglePass('i-pass2')" aria-label="Afficher/masquer le mot de passe">👁</button>
+            </div>
+            <label class="check-line"><input type="checkbox" required> J'accepte les conditions générales d'utilisation</label>
+            <label class="check-line"><input type="checkbox" required> J'accepte la politique de confidentialité</label>
+            <button class="btn" type="submit">Créer mon compte</button>
+            <div class="notice" id="notice-inscription">Bienvenue ! Votre inscription a été enregistrée.</div>
+            <p class="form-alt">Vous avez déjà un compte ? <a href="contact.html">Se connecter</a></p>
+        </form>`;
+
+      return {
+        'index.html': buildPage('Accueil', 'index', accueilBody),
+        'contact.html': buildPage('Contact', 'contact', contactBody),
+        'inscription.html': buildPage('Inscription', 'inscription', inscriptionBody),
+      };
+    }
+
+    return {
+      'index.html': `<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -429,26 +1025,29 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
         if(!${isLocked} || localStorage.getItem(storageKey)) document.getElementById('gateway').classList.add('hidden');
     </script>
 </body>
-</html>`;
+</html>`,
+    };
   };
+
+  const generateHTML = (opts: { inlineLocalMedia?: boolean } = {}) => generatePages(opts)['index.html'];
 
   const handlePreview = async () => {
     if (items.length === 0) {
       showNotification('Aucun contenu ajouté ! Ajoutez du contenu avant de prévisualiser.', 'warning');
       return;
     }
-    const html = generateHTML({ inlineLocalMedia: true });
-    setPreviewModalHtml(html);
+    const pages = generatePages({ inlineLocalMedia: true });
+    setPreviewModalHtml(pages['index.html']);
     setPreviewUrl(null);
     showNotification('Prévisualisation du clone activée', 'success');
 
-    // On publie le HTML sur une URL HTTP same-origin pour que les embeds
+    // On publie le(s) HTML sur une URL HTTP same-origin pour que les embeds
     // YouTube reçoivent un Referer valide (sinon erreur 153 via blob/srcdoc).
     try {
       const res = await fetch('/api/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html }),
+        body: JSON.stringify({ files: pages }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -467,8 +1066,8 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
     setIsExporting(true);
     try {
       const zip = new JSZip();
-      const html = generateHTML();
-      zip.file('index.html', html);
+      const pages = generatePages();
+      Object.entries(pages).forEach(([fileName, content]) => zip.file(fileName, content));
 
       // Embarquer les images locales uploadées comme fichiers séparés dans le ZIP.
       const usedNames = new Set<string>();
@@ -539,26 +1138,29 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
       const owner = repoData.owner.login;
 
       setPublishStatus('pushing');
-      const htmlContent = generateHTML({ inlineLocalMedia: true });
-      const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+      const pages = generatePages({ inlineLocalMedia: true });
 
-      const pushRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/index.html`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `token ${githubToken}`,
-          Accept: 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: `Initial commit - ${siteConfig.title}`,
-          content: base64Content,
-          branch: 'main',
-        }),
-      });
+      for (const [fileName, content] of Object.entries(pages)) {
+        const base64Content = btoa(unescape(encodeURIComponent(content)));
 
-      if (!pushRes.ok) {
-        const errorData = await pushRes.json();
-        throw new Error(errorData.message || 'Impossible de pousser le code');
+        const pushRes = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents/${fileName}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `Initial commit - ${siteConfig.title}`,
+            content: base64Content,
+            branch: 'main',
+          }),
+        });
+
+        if (!pushRes.ok) {
+          const errorData = await pushRes.json();
+          throw new Error(errorData.message || 'Impossible de pousser le code');
+        }
       }
 
       setPublishStatus('pages');
@@ -1069,7 +1671,151 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
                 </button>
               ))}
             </div>
+
+            <div className="space-y-5 border-t border-white/5 pt-6 mt-2">
+              <div className="space-y-2">
+                <label className="sc-label ml-1">Logo (glisser-déposer ou cliquer)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="logo-input"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f && f.type.startsWith('image/')) {
+                      readFileAsDataUrl(f).then(url => setSiteConfig({ ...siteConfig, logoDataUrl: url })).catch(() => showNotification('Impossible de lire le logo.', 'error'));
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <label
+                  htmlFor="logo-input"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const f = e.dataTransfer.files?.[0];
+                    if (f && f.type.startsWith('image/')) {
+                      readFileAsDataUrl(f).then(url => setSiteConfig({ ...siteConfig, logoDataUrl: url })).catch(() => showNotification('Impossible de lire le logo.', 'error'));
+                    }
+                  }}
+                  className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/15 py-6 hover:border-cyan-500/50 hover:bg-white/5 transition-all"
+                >
+                  {siteConfig.logoDataUrl ? (
+                    <img src={siteConfig.logoDataUrl} alt="Logo" className="h-20 object-contain rounded-xl" />
+                  ) : (
+                    <>
+                      <UploadCloud className="w-6 h-6 text-cyan-400" aria-hidden="true" />
+                      <span className="text-xs text-slate-400 font-semibold">Déposez votre logo ici</span>
+                    </>
+                  )}
+                </label>
+                {siteConfig.logoDataUrl && (
+                  <button type="button" onClick={() => setSiteConfig({ ...siteConfig, logoDataUrl: '' })} className="text-[10px] text-red-400 underline mt-1 cursor-pointer">
+                    Retirer le logo
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="wm" className="sc-label ml-1">Texte en arrière-plan (filigrane)</label>
+                <input id="wm" value={siteConfig.watermark || ''} onChange={e => setSiteConfig({ ...siteConfig, watermark: e.target.value })} className="sc-input" placeholder="Texte géant en arrière-plan" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="sc-label ml-1">Couleur des polices</label>
+                  <div className="flex items-center gap-3">
+                    <input type="color" value={siteConfig.textColor} onChange={e => setSiteConfig({ ...siteConfig, textColor: e.target.value })} className="h-10 w-12 rounded-xl border border-white/10 bg-transparent cursor-pointer" />
+                    <span className="text-xs font-mono text-slate-400">{siteConfig.textColor}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="sc-label ml-1">Couleur du fond</label>
+                  <div className="flex items-center gap-3">
+                    <input type="color" value={siteConfig.bgColor || '#020617'} onChange={e => setSiteConfig({ ...siteConfig, bgColor: e.target.value })} className="h-10 w-12 rounded-xl border border-white/10 bg-transparent cursor-pointer" />
+                    <span className="text-xs font-mono text-slate-400">{siteConfig.bgColor || '#020617'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
+
+          {/* Données professionnelles (Site 3 pages) */}
+          {siteConfig.template === 'multipage' && (
+            <section className="glass-panel rounded-[2.5rem] p-8 relative overflow-hidden">
+              <h3 className="text-[12px] font-bold uppercase tracking-[0.5em] mb-8 flex items-center gap-3 text-slate-400 italic">
+                <Info className="w-5 h-5 text-cyan-500" aria-hidden="true" /> Contenu professionnel
+              </h3>
+              <div className="space-y-6">
+
+                <div className="space-y-2">
+                  <label htmlFor="pg-tagline" className="sc-label ml-1">Accroche (hero)</label>
+                  <input id="pg-tagline" value={siteConfig.tagline || ''} onChange={e => setSiteConfig({ ...siteConfig, tagline: e.target.value })} className="sc-input" placeholder="Votre satisfaction, notre priorité" />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="pg-phone" className="sc-label ml-1">Téléphone</label>
+                    <input id="pg-phone" value={siteConfig.phone || ''} onChange={e => setSiteConfig({ ...siteConfig, phone: e.target.value })} className="sc-input" placeholder="+228 00 00 00 00" />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="pg-whatsapp" className="sc-label ml-1">WhatsApp</label>
+                    <input id="pg-whatsapp" value={siteConfig.whatsapp || ''} onChange={e => setSiteConfig({ ...siteConfig, whatsapp: e.target.value })} className="sc-input" placeholder="+228 00 00 00 00" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="pg-address" className="sc-label ml-1">Adresse</label>
+                  <input id="pg-address" value={siteConfig.address || ''} onChange={e => setSiteConfig({ ...siteConfig, address: e.target.value })} className="sc-input" placeholder="Lomé, Togo" />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="pg-schedule" className="sc-label ml-1">Horaires</label>
+                  <input id="pg-schedule" value={siteConfig.schedule || ''} onChange={e => setSiteConfig({ ...siteConfig, schedule: e.target.value })} className="sc-input" placeholder="Lun–Ven : 08h–18h" />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="sc-label ml-1">Mission</label>
+                  <textarea value={siteConfig.mission || ''} onChange={e => setSiteConfig({ ...siteConfig, mission: e.target.value })} className="sc-input resize-none" rows={2} />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="sc-label ml-1">Vision</label>
+                  <textarea value={siteConfig.vision || ''} onChange={e => setSiteConfig({ ...siteConfig, vision: e.target.value })} className="sc-input resize-none" rows={2} />
+                </div>
+
+                <ListEditor
+                  title="Nos valeurs"
+                  values={siteConfig.values || []}
+                  onChange={(v) => setSiteConfig({ ...siteConfig, values: v })}
+                  placeholder="Qualité, Sérieux, Innovation..."
+                />
+
+                <ListEditor
+                  title="Pourquoi nous choisir ?"
+                  values={siteConfig.whyChooseUs || []}
+                  onChange={(v) => setSiteConfig({ ...siteConfig, whyChooseUs: v })}
+                  placeholder="Qualité garantie"
+                />
+
+                <div className="space-y-2">
+                  <label className="sc-label ml-1">Réseaux sociaux (URLs)</label>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input value={siteConfig.social?.facebook || ''} onChange={e => setSiteConfig({ ...siteConfig, social: { ...siteConfig.social, facebook: e.target.value } })} className="sc-input" placeholder="Facebook" />
+                    <input value={siteConfig.social?.instagram || ''} onChange={e => setSiteConfig({ ...siteConfig, social: { ...siteConfig.social, instagram: e.target.value } })} className="sc-input" placeholder="Instagram" />
+                    <input value={siteConfig.social?.tiktok || ''} onChange={e => setSiteConfig({ ...siteConfig, social: { ...siteConfig.social, tiktok: e.target.value } })} className="sc-input" placeholder="TikTok" />
+                    <input value={siteConfig.social?.linkedin || ''} onChange={e => setSiteConfig({ ...siteConfig, social: { ...siteConfig.social, linkedin: e.target.value } })} className="sc-input" placeholder="LinkedIn" />
+                  </div>
+                </div>
+
+                <StatListEditor stats={siteConfig.stats || []} onChange={(s) => setSiteConfig({ ...siteConfig, stats: s })} />
+
+                <ServiceListEditor services={siteConfig.services || []} onChange={(s) => setSiteConfig({ ...siteConfig, services: s })} />
+
+                <TestimonialListEditor testimonials={siteConfig.testimonials} onChange={(t) => setSiteConfig({ ...siteConfig, testimonials: t })} />
+              </div>
+            </section>
+          )}
 
           {/* GitHub publish */}
           <section className="glass-panel rounded-[2.5rem] p-8 relative overflow-hidden">

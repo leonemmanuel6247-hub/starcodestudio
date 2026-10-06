@@ -25,10 +25,10 @@ async function startServer() {
 
   app.use(express.json({ limit: "25mb" }));
 
-  // Preview store: sert le HTML genere depuis une vraie URL HTTP same-origin.
+  // Preview store: sert le(s) HTML genere(s) depuis une vraie URL HTTP same-origin.
   // Necessaire pour que les embeds YouTube obtiennent un Referer/origine valide
   // (les URL blob: et l'attribut srcdoc ont une origine opaque -> erreur 153).
-  const previewStore = new Map<string, { html: string; createdAt: number }>();
+  const previewStore = new Map<string, { pages: Record<string, string>; createdAt: number }>();
   const PREVIEW_TTL_MS = 30 * 60 * 1000;
   const PREVIEW_MAX_ENTRIES = 40;
 
@@ -50,25 +50,35 @@ async function startServer() {
   });
 
   app.post("/api/preview", (req, res) => {
-    const { html } = req.body ?? {};
-    if (!html || typeof html !== "string") {
+    const { html, files } = req.body ?? {};
+    let pages: Record<string, string>;
+    if (files && typeof files === "object" && !Array.isArray(files)) {
+      pages = files as Record<string, string>;
+    } else if (html && typeof html === "string") {
+      pages = { "index.html": html };
+    } else {
       return res.status(400).json({ error: "HTML requis" });
     }
     evictPreviews();
     const id = crypto.randomUUID();
-    previewStore.set(id, { html, createdAt: Date.now() });
-    return res.json({ url: `/api/preview/${id}` });
+    previewStore.set(id, { pages, createdAt: Date.now() });
+    return res.json({ url: `/api/preview/${id}/` });
   });
 
-  app.get("/api/preview/:id", (req, res) => {
+  app.get("/api/preview/:id/:file?", (req, res) => {
     const entry = previewStore.get(req.params.id);
     if (!entry) {
       return res.status(404).send("Previsualisation introuvable ou expiree.");
     }
+    const fileName = req.params.file || "index.html";
+    const pageHtml = entry.pages[fileName];
+    if (!pageHtml) {
+      return res.status(404).send("Page introuvable.");
+    }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    return res.send(entry.html);
+    return res.send(pageHtml);
   });
 
   app.post("/api/assistant", async (req, res) => {

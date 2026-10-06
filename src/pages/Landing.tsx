@@ -1,7 +1,7 @@
 import React from 'react';
 import { SiteConfig } from '../types';
 import {
-  ArrowRight, ShieldCheck, Layers, Sparkles, Rocket, Zap,
+  ArrowRight, ShieldCheck, Layers, Sparkles, Rocket, Zap, Files,
 } from 'lucide-react';
 
 interface Props {
@@ -111,6 +111,19 @@ export const Landing: React.FC<Props> = ({ siteConfig, setSiteConfig, onNavigate
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" aria-hidden="true" /> Protégé
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={siteConfig.template === 'multipage'}
+                onClick={() => setSiteConfig({ ...siteConfig, template: 'multipage' })}
+                className={`px-6 md:px-10 py-4 rounded-2xl border text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-3 cursor-pointer ${
+                  siteConfig.template === 'multipage'
+                    ? 'bg-white text-black border-white shadow-xl scale-[1.03]'
+                    : 'border-white/20 text-slate-400 hover:text-white hover:border-white/40 hover:bg-white/5'
+                }`}
+              >
+                <Files className="w-4 h-4" aria-hidden="true" /> Site 3 Pages
               </button>
             </div>
 

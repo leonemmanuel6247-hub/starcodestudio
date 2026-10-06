@@ -27,7 +27,22 @@ const App: React.FC = () => {
     template: 'standard',
     deploymentType: 'premium',
     registrationUrl: '',
-    resourcesUrl: ''
+    resourcesUrl: '',
+    tagline: 'Votre satisfaction, notre priorité',
+    mission: 'Offrir des produits et services de qualité, accessibles et adaptés aux besoins de nos clients.',
+    vision: 'Devenir la référence de confiance de notre secteur grâce à un accompagnement irréprochable.',
+    values: [],
+    whyChooseUs: [],
+    stats: [],
+    services: [],
+    phone: '',
+    whatsapp: '',
+    address: '',
+    schedule: '',
+    social: {},
+    logoDataUrl: '',
+    bgColor: '#020617',
+    watermark: 'STAR CODE STUDIO'
   });
   const [user, setUser] = useState<UserData | null>(null);
 
