@@ -750,9 +750,29 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
         ${footerHTML}
     </div>
     <script>
+        var OWNER_EMAIL = '${contactEmail}';
+        var ORGANIZATION_NAME = '${escapeHTML(siteConfig.title)}';
         function handleForm(e, id) {
             e.preventDefault();
             var n = document.getElementById('notice-' + id);
+            if (n) n.classList.add('ok');
+            e.target.reset();
+            return false;
+        }
+        function sendContact(e) {
+            e.preventDefault();
+            var name = (document.getElementById('c-name').value || '').trim();
+            var email = (document.getElementById('c-email').value || '').trim();
+            var phone = (document.getElementById('c-phone').value || '').trim();
+            var subject = (document.getElementById('c-subject').value || '').trim();
+            var msg = (document.getElementById('c-msg').value || '').trim();
+            var body = 'Nom : ' + name + '\nEmail : ' + email + '\nTéléphone : ' + phone + '\n\n' + msg;
+            var to = OWNER_EMAIL || '';
+            var href = 'mailto:' + to
+                + '?subject=' + encodeURIComponent(subject || 'Demande via le site')
+                + '&body=' + encodeURIComponent(body);
+            window.location.href = href;
+            var n = document.getElementById('notice-contact');
             if (n) n.classList.add('ok');
             e.target.reset();
             return false;
@@ -761,14 +781,23 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
             var f = document.getElementById(id);
             f.type = f.type === 'password' ? 'text' : 'password';
         }
-        function handleSignup(e) {
+        function sendSignup(e) {
             e.preventDefault();
+            var ln = (document.getElementById('i-lastname').value || '').trim();
+            var fn = (document.getElementById('i-firstname').value || '').trim();
+            var email = (document.getElementById('i-email').value || '').trim();
+            var phone = (document.getElementById('i-phone').value || '').trim();
             var p1 = document.getElementById('i-pass').value;
             var p2 = document.getElementById('i-pass2').value;
+            var subject = 'Nouvelle inscription - ' + ORGANIZATION_NAME;
+            var body = 'Nom : ' + ln + '\nPrénom : ' + fn + '\nEmail : ' + email + '\nTéléphone : ' + phone + '\n\nNouveau compte créé sur ' + ORGANIZATION_NAME + '.';
             if (p2 !== p1) {
                 alert('Les mots de passe ne correspondent pas.');
                 return false;
             }
+            window.location.href = 'mailto:' + OWNER_EMAIL
+                + '?subject=' + encodeURIComponent(subject)
+                + '&body=' + encodeURIComponent(body);
             var n = document.getElementById('notice-inscription');
             if (n) n.classList.add('ok');
             e.target.reset();
@@ -897,7 +926,7 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
 
             <div>
                 <h2 class="section-title" style="text-align:left;">Envoyez-nous un message</h2>
-                <form class="form-card" onsubmit="return handleForm(event, 'contact')">
+                <form class="form-card" onsubmit="return sendContact(event)">
                     <label for="c-name">Nom complet</label>
                     <input id="c-name" type="text" placeholder="Votre nom" required>
                     <label for="c-email">Email</label>
@@ -920,7 +949,7 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
             <h2 class="page-title">Créez votre compte</h2>
             <p class="hero-desc">Rejoignez-nous en quelques secondes.</p>
         </section>
-        <form class="form-card signup-card" onsubmit="return handleSignup(event)">
+        <form class="form-card signup-card" onsubmit="return sendSignup(event)">
             <label for="i-lastname">Nom</label>
             <input id="i-lastname" type="text" placeholder="Votre nom" required>
             <label for="i-firstname">Prénom</label>
