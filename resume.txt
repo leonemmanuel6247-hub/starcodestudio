@@ -1,0 +1,151 @@
+Résumé final — Star Code Studio (situation & flux actuels)
+
+1) Vue d’ensemble
+- App: React 19 + TypeScript + Tailwind v4 + Vite.
+- Serveur: Express 4 (server.ts) avec endpoints API.
+- But: générer des “clones” de portails éducatifs via une interface de personnalisation, puis exporter en ZIP et/ou publier sur GitHub Pages.
+- Templates: “standard/locked” (1 page) et “multipage” (3 pages).
+
+2) Flux utilisateur (UI)
+- App.tsx
+  - État: currentPage = 'landing' | 'signup' | 'customization'.
+  - Restauration session:
+    - localStorage key: star_code_studio_session.
+    - si savedData contient email + firstName => user restauré et navigation vers 'customization'.
+  - handleSignupSuccess:
+    - stocke email/ip/nom/prénom/pays/grade/projectName dans localStorage.
+
+- Landing.tsx
+  - Configure projectName et title.
+  - Choix du template:
+    - standard, locked, multipage.
+
+- Signup.tsx
+  - Collecte: fullName, email, grade, country.
+  - Récupère IP via https://api.ipify.org?format=json.
+  - Validation email: regex simple.
+  - Appelle onSuccess(UserData) => App.tsx.
+
+3) Serveur (server.ts)
+- GET /api/health: { status: ok }.
+- Preview:
+  - POST /api/preview
+    - attend { html } ou { files }.
+    - stocke en mémoire Map(id => { pages, createdAt }).
+    - TTL: 30 min, max: 40 entrées.
+    - retourne { url: /api/preview/:id/ }.
+  - GET /api/preview/:id/:file?
+    - renvoie la page demandée (index.html par défaut).
+    - headers: Content-Type text/html, Cache-Control no-store, Referrer-Policy strict-origin-when-cross-origin.
+- IA:
+  - POST /api/assistant
+    - appelle Gemini côté serveur avec GEMINI_API_KEY.
+    - systemInstruction: Star Code Brain, français.
+
+4) Vite (vite.config.ts)
+- Active React + Tailwind.
+- Plugin “aistudioMediaPlugin”:
+  - sert des fichiers sous /assets/aistudio/ depuis public/assets/aistudio/.
+  - vérifie le path (anti path traversal via startsWith check).
+  - déduit Content-Type par extension.
+
+5) Cœur: Customization.tsx
+5.1 Structures / données
+- items[]: liste de contenus (titre, description, lien optionnel, meta, média, position, taille texte, dataUrl locale).
+- siteConfig: branding + style + champs “professionnels” (multipage) + resources.
+
+5.2 Helpers
+- Résolution média:
+  - image directe vs video directe vs youtube.
+- Upload image:
+  - readFileAsDataUrl(file) => base64 data URL.
+  - limite d’acceptation UI: images only, et taille <= 8MB.
+
+- renderMarkdown(src)
+  - échappe &,<,>," puis transforme **gras**, *italique*, listes, titres (#, ##, ###) en HTML.
+
+- escapeHTML(str)
+  - remplace &,<,>,",'
+
+5.3 Génération des pages HTML
+- generatePages({ inlineLocalMedia?: boolean }) => Record<string, string>.
+
+A) Branche multipage (siteConfig.template === 'multipage')
+- Construit baseCss = buildBaseCss(accent, textColor, bgColor) + MULTIPAGE_CSS.
+- Génère:
+  - index.html (accueil + sections mission/vision/valeurs/services/ressources/why/tests/stats + CTA contact)
+  - contact.html (coordonnées + formulaire contact)
+  - inscription.html (formulaire inscription)
+- Ajoute watermark / logo / header nav / footer.
+- Les ressources “items” sont injectées dans index via contentHTML.
+
+B) Branche non-multipage (standard / locked)
+- Génère un seul index.html.
+- Affiche contentHTML injecté dans #content.
+- Footer: contactEmail + titre.
+
+5.4 “Locked / gateway” (non-multipage)
+- Dans index.html:
+  - var storageKey = 'starcode_auth_${escapeHTML(siteConfig.projectName)}'
+  - unlock():
+    - lit clé pass, si longueur >= 2 => localStorage.setItem(storageKey, val) et masque gateway.
+  - Au chargement:
+    - si !isLocked OR localStorage.getItem(storageKey) => gateway caché.
+
+5.5 Formulaires: zéro-cost via mailto:
+- Multipage uniquement.
+- Destinataire propriétaire:
+  - var OWNER_EMAIL = '${contactEmail}';
+  - contactEmail = escapeHTML(user?.email || 'contact');
+
+- Contact (sendContact):
+  - récupère nom/email/tel/subject/message.
+  - dateTimeStr: now.toLocaleString('fr-FR', { dateStyle:'full', timeStyle:'short' }).
+  - body inclut:
+    - Date et heure
+    - Envoyeur (nom/email/tel)
+    - Message
+  - encodeURIComponent(subject/body) => mailto.
+  - affiche notice #notice-contact.
+
+- Inscription (sendSignup):
+  - récupère nom/prénom/email/tel + mots de passe.
+  - vérifie p2 === p1.
+  - body inclut date/heure + infos.
+  - encodeURIComponent => mailto.
+  - affiche notice #notice-inscription.
+
+6) Preview (in-app)
+- handlePreview():
+  - génère HTML avec inlineLocalMedia: true.
+  - tente POST /api/preview pour une URL HTTP same-origin.
+  - si OK => iframe src = previewUrl.
+  - sinon => iframe srcDoc avec le HTML généré.
+
+7) Export ZIP (JSZip)
+- handleDownload():
+  - pages = generatePages() (sans inlineLocalMedia).
+  - ajoute chaque HTML via zip.file(fileName, content).
+  - ajoute aussi les images locales uploadées en fichiers séparés dans le ZIP:
+    - zip.file(item.localFileName, base64-data[1], { base64: true }).
+  - déclenche download via blob URL.
+
+8) Publication GitHub Pages
+- publishToGitHub():
+  - nécessite githubToken (input type password côté UI).
+  - createRepo: POST /user/repos.
+  - push contents: PUT /repos/{owner}/{repo}/contents/{fileName} (branch main, message initial commit).
+  - activer pages: POST /repos/{owner}/{repo}/pages (branch main, path '/').
+  - URL: https://{owner}.github.io/{repoName}/
+
+9) Points à surveiller / risques principaux
+- Locked non-multipage:
+  - la “preuve” d’accès dépend de localStorage (pas de serveur).
+- OWNER_EMAIL injection dans JS:
+  - OWNER_EMAIL est dérivé de contactEmail qui passe escapeHTML (incluant potentiellement &#039;).
+  - si une valeur contenait des caractères inattendus, le JS peut envoyer une adresse non souhaitée.
+- Corps mailto:
+  - subject/body sont encodeURIComponent => cohérent.
+  - la longueur mailto peut dépasser les limites navigateur (risque faible mais possible selon message).
+- Preview YouTube:
+  - le serveur preview same-origin est choisi explicitement pour éviter l’erreur réferrer/origine.

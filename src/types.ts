@@ -34,6 +34,7 @@ export interface SiteConfig {
   logoDataUrl?: string;
   bgColor?: string;
   watermark?: string;
+
 }
 
 export interface UserData {

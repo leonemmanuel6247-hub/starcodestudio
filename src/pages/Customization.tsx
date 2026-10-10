@@ -14,6 +14,12 @@ interface Props {
   user: UserData | null;
 }
 
+interface Props {
+  siteConfig: SiteConfig;
+  setSiteConfig: React.Dispatch<React.SetStateAction<SiteConfig>>;
+  user: UserData | null;
+}
+
 interface ResourceItem {
   title: string;
   description: string;
@@ -749,58 +755,157 @@ export const Customization: React.FC<Props> = ({ siteConfig, setSiteConfig, user
         ${body}
         ${footerHTML}
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script>
         var OWNER_EMAIL = '${contactEmail}';
         var ORGANIZATION_NAME = '${escapeHTML(siteConfig.title)}';
-        function handleForm(e, id) {
-            e.preventDefault();
-            var n = document.getElementById('notice-' + id);
-            if (n) n.classList.add('ok');
-            e.target.reset();
-            return false;
+
+        /* ── Comptes EmailJS (rotation automatique si quota épuisé) ── */
+        var EMAILJS_ACCOUNTS = [
+            {
+                publicKey:       'RaUqCCnM61LP6x2JM',
+                serviceId:       'service_iz1wrt9',
+                templateContact: 'template_6vx7x4p',
+                templateSignup:  'template_6vx7x4p'
+            },
+            {
+                publicKey:       'SPkyfCgZyBOvqm5ON',
+                serviceId:       'service_714d8z9',
+                templateContact: 'template_a8gmz8s',
+                templateSignup:  'template_a8gmz8s'
+            }
+            ,{
+                publicKey:       'quKfbbsW3NLDrVxwH',
+                serviceId:       'service_zhdgw7q',
+                templateContact: null,
+                templateSignup:  'template_v8sllt7'
+            }
+        ];
+        var _ejsIndex = 0;
+
+        function sendWithFallback(templateKey, params, onSuccess, onError) {
+            if (_ejsIndex >= EMAILJS_ACCOUNTS.length) { onError('Tous les comptes ont échoué'); return; }
+            var acc = EMAILJS_ACCOUNTS[_ejsIndex];
+            if (!acc[templateKey]) { _ejsIndex++; sendWithFallback(templateKey, params, onSuccess, onError); return; }
+            emailjs.init({ publicKey: acc.publicKey });
+            emailjs.send(acc.serviceId, acc[templateKey], params)
+                .then(function(r) { onSuccess(r); })
+                .catch(function(err) {
+                    console.warn('EmailJS compte ' + _ejsIndex + ' échoué', err);
+                    _ejsIndex++;
+                    sendWithFallback(templateKey, params, onSuccess, onError);
+                });
         }
-        function sendContact(e) {
-            e.preventDefault();
-            var name = (document.getElementById('c-name').value || '').trim();
-            var email = (document.getElementById('c-email').value || '').trim();
-            var phone = (document.getElementById('c-phone').value || '').trim();
-            var subject = (document.getElementById('c-subject').value || '').trim();
-            var msg = (document.getElementById('c-msg').value || '').trim();
-            var body = 'Nom : ' + name + '\nEmail : ' + email + '\nTéléphone : ' + phone + '\n\n' + msg;
-            var to = OWNER_EMAIL || '';
-            var href = 'mailto:' + to
-                + '?subject=' + encodeURIComponent(subject || 'Demande via le site')
-                + '&body=' + encodeURIComponent(body);
-            window.location.href = href;
-            var n = document.getElementById('notice-contact');
-            if (n) n.classList.add('ok');
-            e.target.reset();
-            return false;
+
+        function isValidEmail(v) {
+            return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(v).toLowerCase());
+        }
+
+        var COOLDOWN_MS = 259200000; // 72 heures
+        function checkCooldown(key) {
+            var last = localStorage.getItem('starcode_ejs_' + key);
+            if (last) {
+                var diff = Date.now() - parseInt(last, 10);
+                if (diff < COOLDOWN_MS) {
+                    return Math.ceil((COOLDOWN_MS - diff) / 3600000); // heures restantes
+                }
+            }
+            return 0;
+        }
+        function setCooldown(key) {
+            localStorage.setItem('starcode_ejs_' + key, Date.now().toString());
         }
         function togglePass(id) {
             var f = document.getElementById(id);
             f.type = f.type === 'password' ? 'text' : 'password';
         }
-        function sendSignup(e) {
+
+        function sendContact(e) {
             e.preventDefault();
-            var ln = (document.getElementById('i-lastname').value || '').trim();
-            var fn = (document.getElementById('i-firstname').value || '').trim();
-            var email = (document.getElementById('i-email').value || '').trim();
-            var phone = (document.getElementById('i-phone').value || '').trim();
-            var p1 = document.getElementById('i-pass').value;
-            var p2 = document.getElementById('i-pass2').value;
-            var subject = 'Nouvelle inscription - ' + ORGANIZATION_NAME;
-            var body = 'Nom : ' + ln + '\nPrénom : ' + fn + '\nEmail : ' + email + '\nTéléphone : ' + phone + '\n\nNouveau compte créé sur ' + ORGANIZATION_NAME + '.';
-            if (p2 !== p1) {
-                alert('Les mots de passe ne correspondent pas.');
+            var name    = (document.getElementById('c-name').value    || '').trim();
+            var email   = (document.getElementById('c-email').value   || '').trim();
+            var phone   = (document.getElementById('c-phone').value   || '').trim();
+            var subject = (document.getElementById('c-subject').value || '').trim();
+            var msg     = (document.getElementById('c-msg').value     || '').trim();
+
+            var notice  = document.getElementById('notice-contact');
+            
+            var waitContact = checkCooldown('contact');
+            if (waitContact > 0) {
+                if (notice) { notice.textContent = '❌ Vous devez attendre ' + waitContact + 'h avant votre prochain message.'; notice.className = 'notice err'; }
                 return false;
             }
-            window.location.href = 'mailto:' + OWNER_EMAIL
-                + '?subject=' + encodeURIComponent(subject)
-                + '&body=' + encodeURIComponent(body);
-            var n = document.getElementById('notice-inscription');
-            if (n) n.classList.add('ok');
-            e.target.reset();
+            if (!isValidEmail(email)) {
+                if (notice) { notice.textContent = 'Adresse email invalide.'; notice.className = 'notice err'; }
+                return false;
+            }
+            var dateStr = new Date().toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' });
+            var params = {
+                from_name: name, from_email: email, phone: phone,
+                subject: subject || 'Demande via le site',
+                message: msg, to_email: OWNER_EMAIL,
+                organization: ORGANIZATION_NAME, sent_at: dateStr
+            };
+            if (notice) { notice.textContent = 'Envoi en cours…'; notice.className = 'notice'; }
+            _ejsIndex = 0;
+            sendWithFallback('templateContact', params,
+                function() { setCooldown('contact'); if (notice) { notice.textContent = '✅ Message envoyé !'; notice.className = 'notice ok'; } e.target.reset(); },
+                function(err) { if (notice) { notice.textContent = '❌ Erreur — réessayez.'; notice.className = 'notice err'; } console.error(err); }
+            );
+            return false;
+        }
+
+        function sendSignup(e) {
+            e.preventDefault();
+            var ln    = (document.getElementById('i-lastname').value  || '').trim();
+            var fn    = (document.getElementById('i-firstname').value || '').trim();
+            var email = (document.getElementById('i-email').value     || '').trim();
+            var phone = (document.getElementById('i-phone').value     || '').trim();
+            var p1    = document.getElementById('i-pass').value;
+            var p2    = document.getElementById('i-pass2').value;
+
+            var notice = document.getElementById('notice-inscription');
+
+            var waitSignup = checkCooldown('signup');
+            if (waitSignup > 0) {
+                if (notice) { notice.textContent = '❌ Vous devez attendre ' + waitSignup + 'h avant une nouvelle inscription.'; notice.className = 'notice err'; }
+                return false;
+            }
+            if (p2 !== p1) { alert('Les mots de passe ne correspondent pas.'); return false; }
+            if (!isValidEmail(email)) {
+                if (notice) { notice.textContent = 'Adresse email invalide.'; notice.className = 'notice err'; }
+                return false;
+            }
+            var dateStr = new Date().toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' });
+            var params = {
+                from_name: fn + ' ' + ln, from_email: email, phone: phone,
+                subject: 'Nouvelle inscription - ' + ORGANIZATION_NAME,
+                message: 'Inscription le ' + dateStr,
+                to_email: OWNER_EMAIL, organization: ORGANIZATION_NAME, sent_at: dateStr
+            };
+            if (notice) { notice.textContent = 'Envoi en cours…'; notice.className = 'notice'; }
+            // Params visiteur → comptes 1 & 2
+            _ejsIndex = 0;
+            sendWithFallback('templateSignup', params,
+                function() { setCooldown('signup'); if (notice) { notice.textContent = '✅ Inscription envoyée !'; notice.className = 'notice ok'; } e.target.reset(); },
+                function(err) { if (notice) { notice.textContent = '❌ Erreur — réessayez.'; notice.className = 'notice err'; } console.error(err); }
+            );
+            // Notif admin → compte 3 (template_v8sllt7) toujours envoyée en parallèle
+            var adminAcc = EMAILJS_ACCOUNTS[2];
+            if (adminAcc && adminAcc.templateSignup) {
+                var adminParams = {
+                    from_nom:       ln,
+                    from_prenom:    fn,
+                    from_email:     email,
+                    from_telephone: phone,
+                    from_date:      dateStr,
+                    to_email:       OWNER_EMAIL
+                };
+                emailjs.init({ publicKey: adminAcc.publicKey });
+                emailjs.send(adminAcc.serviceId, adminAcc.templateSignup, adminParams)
+                    .then(function() { console.log('Notif admin envoyée'); })
+                    .catch(function(err) { console.warn('Notif admin échouée', err); });
+            }
             return false;
         }
     </script>

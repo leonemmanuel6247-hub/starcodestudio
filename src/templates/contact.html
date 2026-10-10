@@ -1,0 +1,18 @@
+<div class="contact-form">
+    <h2>Contactez-nous</h2>
+    <form onsubmit="return sendContact(event)">
+        <input type="text" id="c-name" placeholder="Nom" required>
+        <input type="email" id="c-email" placeholder="Email" required>
+        <input type="tel" id="c-phone" placeholder="Téléphone">
+        <input type="text" id="c-subject" placeholder="Sujet">
+        <textarea id="c-msg" placeholder="Message" required></textarea>
+        <button type="submit">Envoyer</button>
+        <div id="notice-contact" class="notice"></div>
+    </form>
+    <div class="contact-info">
+        <p>📍 {{address}}</p>
+        <p>📞 <a href="tel:{{phone}}">{{phone}}</a></p>
+        <p>💬 <a href="https://wa.me/{{whatsappLink}}" target="_blank" rel="noopener">{{whatsapp}}</a></p>
+        <p>📧 <a href="mailto:{{contactEmail}}">{{contactEmail}}</a></p>
+    </div>
+</div>

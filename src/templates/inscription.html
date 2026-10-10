@@ -1,0 +1,13 @@
+<div class="signup-form">
+    <h2>Inscription</h2>
+    <form onsubmit="return sendSignup(event)">
+        <input type="text" id="i-lastname" placeholder="Nom" required>
+        <input type="text" id="i-firstname" placeholder="Prénom" required>
+        <input type="email" id="i-email" placeholder="Email" required>
+        <input type="tel" id="i-phone" placeholder="Téléphone">
+        <input type="password" id="i-pass" placeholder="Mot de passe" required>
+        <input type="password" id="i-pass2" placeholder="Confirmer le mot de passe" required>
+        <button type="submit">S'inscrire</button>
+        <div id="notice-inscription" class="notice"></div>
+    </form>
+</div>
